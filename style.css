@@ -11,7 +11,7 @@
 
 :root {
     /* 색상 팔레트 */
-    --color-primary: #a2c8c3;
+    --color-primary: #A8D7EC;
     --color-secondary: #f0e6d6;
     --color-text: #333;
     --color-bg: #fdfaf5;
@@ -113,7 +113,7 @@ button, .btn-upload, .btn-icon {
     line-height: 1.2;
 }
 button:hover, .btn-upload:hover {
-    background-color: #8bbbab;
+    background-color: #96CAE4;
 }
 button:disabled {
     background-color: #ccc;
@@ -437,13 +437,13 @@ textarea {
     position: absolute;
     bottom: 10px;
     right: 10px;
-    background-color: rgba(255, 255, 255, 0.9);
-    color: var(--color-primary);
+    background-color: rgba(255, 255, 255, 0.8);
+    color: var(--color-text);
     padding: 5px 10px;
     border-radius: 15px;
     font-size: 14px;
     font-weight: bold;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     pointer-events: none;
     animation: bounce 2s infinite;
 }

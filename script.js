@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // [중요] 백엔드 서버 주소 (Azure VM IP로 변경 필요)
+    const API_BASE_URL = "http://20.214.252.252:8000";
+
     // 상태 관리 변수
     let currentBook = {
         title: '',
@@ -31,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnGalleryNext = document.getElementById('btn-gallery-next');
     const galleryPagination = document.getElementById('gallery-pagination');
 
-    // 모달 관련 요소
+    // 모달 및 게임 관련 요소
     const fullscreenModal = document.getElementById('fullscreen-modal');
     const fullscreenImage = document.getElementById('fullscreen-image');
     const modalClose = document.querySelector('.modal-close');
@@ -39,8 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const systemModalMsg = document.getElementById('system-modal-msg');
     const btnSystemConfirm = document.getElementById('btn-system-confirm');
     const btnSystemCancel = document.getElementById('btn-system-cancel');
-
-    // 게임 관련 요소
     const gameMissionBar = document.getElementById('game-mission-bar');
     const missionTargetName = document.getElementById('mission-target-name');
     const gameToast = document.getElementById('game-toast');
@@ -50,9 +51,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 유틸리티 함수
     // ==============================
 
-    /**
-     * 화면 전환 함수
-     */
     function showScreen(screenId) {
         if (screenId === 'screen-welcome') {
             document.body.classList.add('welcome-active');
@@ -64,13 +62,9 @@ document.addEventListener('DOMContentLoaded', () => {
             screen.classList.remove('active');
         });
         document.getElementById(screenId).classList.add('active');
-
         window.scrollTo(0, 0);
     }
 
-    /**
-     * 채팅 메시지 추가
-     */
     function addChatMessage(text, sender) {
         const bubble = document.createElement('div');
         bubble.classList.add('chat-bubble', sender);
@@ -79,9 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
         chatContainer.scrollTop = chatContainer.scrollHeight; 
     }
 
-    /**
-     * 메인 이미지 업데이트
-     */
     function updateMainImage(imageUrl) {
         if (imageUrl) {
             mainImage.src = imageUrl;
@@ -100,7 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const bubble = document.createElement('div');
         bubble.classList.add('chat-bubble', 'ai');
 
-        // 이미지 컨테이너 생성
         const container = document.createElement('div');
         container.className = 'chat-image-container';
 
@@ -110,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
         img.style.borderRadius = '10px';
         img.style.cursor = 'pointer';
 
-        // 이미지 태그에 정답 데이터 저장 (Dataset 활용)
+        // 이미지 태그에 정답 데이터 저장 (데이터셋 활용)
         if (objects && objects.length > 0) {
             img.dataset.objects = JSON.stringify(objects); 
         }
@@ -123,7 +113,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         container.appendChild(img);
 
-        // "찾아봐!" 배지 추가
         if (objects && objects.length > 0) {
             const badge = document.createElement('div');
             badge.className = 'game-badge';
@@ -164,13 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showSystemModal(message, type = 'alert') {
         return new Promise((resolve) => {
             systemModalMsg.textContent = message;
-
-            if (type === 'confirm') {
-                btnSystemCancel.style.display = 'inline-block';
-            } else {
-                btnSystemCancel.style.display = 'none';
-            }
-
+            btnSystemCancel.style.display = (type === 'confirm') ? 'inline-block' : 'none';
             systemModal.classList.add('show');
 
             const handleConfirm = () => {
@@ -227,81 +210,53 @@ document.addEventListener('DOMContentLoaded', () => {
         showGallerySlide(0);
     }
 
-    // 앱 초기화 (처음으로)
     function resetApp() {
-        currentBook = {
-            title: '',
-            characters: [],
-            generatedImages: []
-        };
+        currentBook = { title: '', characters: [], generatedImages: [] };
         currentSlideIndex = 0;
         bookTitleInput.value = '';
-
         charInputsContainer.innerHTML = `
             <div class="input-group char-group">
                 <input type="text" class="char-name" placeholder="이름 (예: 아기 돼지)">
                 <textarea class="char-desc" placeholder="어떻게 생겼어? (예: 분홍색 코, 파란 멜빵바지)"></textarea>
             </div>`;
-
         updateMainImage(null);
         chatContainer.innerHTML = '';
         populateGallery();
         document.body.classList.add('welcome-active');
     }
 
-    /**
-     * 전체 화면 모달 열기 (게임 시작)
-     */
     function openFullscreenModal(imageUrl, objects = []) {
         if (!imageUrl) return;
-
         fullscreenImage.src = imageUrl;
-
-        // 원본 배열 복사 (게임 재시작 가능하도록)
         currentGameObjects = JSON.parse(JSON.stringify(objects));
-
-        // 이전 정답 박스 제거
         const oldBoxes = fullscreenModal.querySelectorAll('.correct-box');
         oldBoxes.forEach(box => box.remove());
-
-        // 미션 바 설정
-        if (currentGameObjects.length > 0) {
-            updateMissionDisplay();
-        } else {
-            gameMissionBar.style.display = 'none';
-        }
-
+        if (currentGameObjects.length > 0) updateMissionDisplay();
+        else gameMissionBar.style.display = 'none';
         fullscreenModal.classList.add('show');
     }
-
-    // 모달 닫기
-    function closeFullscreenModal() {
-        fullscreenModal.classList.remove('show');
-    }
+    function closeFullscreenModal() { fullscreenModal.classList.remove('show'); }
 
 
-    // ==============================
-    // 이벤트 리스너
-    // ==============================
+    // 🔽 이벤트 리스너 🔽
 
-    btnStartSetup.addEventListener('click', () => {
-        showScreen('screen-setup-book');
-    });
+    btnStartSetup.addEventListener('click', () => showScreen('screen-setup-book'));
 
-    // 책 표지 업로드
     coverUpload.addEventListener('change', async (event) => {
         const file = event.target.files[0];
         if (!file) return;
-
-        const title = await analyzeBookCover(file);
-        if (title) {
-            bookTitleInput.value = title;
-            currentBook.title = title;
-
-            const bookInfo = await checkBookInDB(title);
-            if (bookInfo && bookInfo.characters) {
+        addChatMessage("책 표지를 분석 중이야... 🔍", "ai");
+        
+        // [API] 책 표지 분석 (DB 조회 포함)
+        const result = await analyzeBookCover(file);
+        
+        if (result && result.title) {
+            bookTitleInput.value = result.title;
+            currentBook.title = result.title;
+            
+            if (result.characters && result.characters.length > 0) {
                 charInputsContainer.innerHTML = ''; 
-                bookInfo.characters.forEach(char => {
+                result.characters.forEach(char => {
                      const charGroup = document.createElement('div');
                      charGroup.classList.add('input-group', 'char-group');
                      charGroup.innerHTML = `
@@ -311,7 +266,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                     charInputsContainer.appendChild(charGroup);
                 });
+                addChatMessage(`'${result.title}' 책이구나! 친구들도 미리 불러왔어.`, "ai");
+            } else {
+                addChatMessage(`'${result.title}' 책이 맞니? 등장인물은 직접 알려줘!`, "ai");
             }
+        } else {
+            addChatMessage("책 제목을 읽지 못했어. 직접 입력해줄래?", "ai");
         }
         event.target.value = null;
     });
@@ -346,75 +306,52 @@ document.addEventListener('DOMContentLoaded', () => {
     btnStartReading.addEventListener('click', async () => {
         currentBook.characters = [];
         const charGroups = charInputsContainer.querySelectorAll('.char-group');
-
         for (const group of charGroups) {
             const name = group.querySelector('.char-name').value;
             const desc = group.querySelector('.char-desc').value;
-
             if (name) {
-                const isSafe = await validateTextWithGemini(name + ": " + desc);
-                if (isSafe) {
-                    currentBook.characters.push({ name, desc });
-                } else {
-                    await showSystemModal(`'${name}'의 설명에 부적절한 내용이 있어! 수정해줘.`, "alert");
-                    return;
-                }
+                // 여기서는 간단히 추가만 하고, 실제 검증은 백엔드나 추후 수행 가능
+                currentBook.characters.push({ name, desc });
             } else if (desc) {
                 await showSystemModal("등장인물의 '이름'을 꼭 입력해줘!", "alert");
                 group.querySelector('.char-name').focus();
                 return;
             }
         }
-
         addChatMessage(`좋아! '${currentBook.title || '이 책'}' 읽기를 시작하자. 책 페이지를 찍어서 올려주면 그림을 그려줄게!`, "ai");
         showScreen('screen-reading');
     });
 
-    // 페이지 업로드 로직
+    // [핵심 수정] 통합된 페이지 업로드 및 처리
     pageUpload.addEventListener('change', async (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
-        addChatMessage("페이지를 읽고 그림을 그리는 중...", "ai");
+        addChatMessage("페이지를 읽고 그림을 그리고 있어... (조금 걸릴 수 있어!) 🎨", "ai");
         updateMainImage(null); 
 
-        // 1. OCR
-        const ocrText = await ocrPage(file);
-        if (!ocrText) {
-            addChatMessage("앗, 글자를 읽지 못했어. 다시 찍어줄래?", "ai");
-            return;
+        // [API] 페이지 처리 통합 요청
+        // OCR -> 프롬프트 -> 이미지 생성 -> 객체 탐지를 백엔드에서 한 번에!
+        const result = await processBookPage(file, currentBook.characters);
+
+        if (result) {
+            // 1. 이미지 업데이트
+            if (result.imageUrl) {
+                updateMainImage(result.imageUrl);
+                currentBook.generatedImages.push(result.imageUrl);
+            }
+
+            // 2. 채팅창에 이미지 추가 (게임 데이터 포함)
+            addChatImage(result.imageUrl, result.objects);
+
+            // 3. AI 질문 출력
+            // 백엔드에서 질문(aiQuestion)을 보내주면 그걸 쓰고, 없으면 기본 문구 사용
+            const aiMsg = result.aiQuestion || `"${result.ocrText}" 장면을 그려봤어. 어때?`;
+            addChatMessage(aiMsg, "ai");
+
+        } else {
+            addChatMessage("앗, 그림을 그리는 도중에 문제가 생겼어. 다시 시도해줄래?", "ai");
         }
-
-        // 2. 프롬프트 정제
-        const refinedPrompt = await refineTextWithGemini(ocrText, currentBook.characters);
-
-        // 3. 이미지 생성
-        const imageUrl = await generateImageWithStableDiffusion(refinedPrompt);
-        if (!imageUrl) {
-             addChatMessage("앗, 그림을 그리다가 실패했어... 😭", "ai");
-             return;
-        }
-
-        // 메인 이미지 업데이트
-        updateMainImage(imageUrl);
-        currentBook.generatedImages.push(imageUrl);
-
-        // 4. 객체 탐지
-        const objects = await detectObjectsInImage(file);
-
-        // objectString 변수 생성
-        let objectString = "";
-        if (objects && objects.length > 0) {
-            const names = objects.map(o => o.name).join(', ');
-            objectString = `그림에서 ${names}(이)가 보여.`;
-        }
-
-        // 채팅 창에 이미지 추가
-        addChatImage(imageUrl, objects);
-
-        // 5. 후속 질문
-        const followUpQuestion = await getChatResponse(`"${ocrText}"라는 내용의 그림이야. ${objectString} 이 그림에 대해 아이에게 할 질문 하나만 해줘.`, []);
-        addChatMessage(followUpQuestion, "ai");
 
         event.target.value = null;
     });
@@ -422,178 +359,117 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSendChat.addEventListener('click', async () => {
         const userText = chatInput.value;
         if (!userText) return;
-
         addChatMessage(userText, "user");
         chatInput.value = "";
-        const aiResponse = await getChatResponse(userText, []);
-        addChatMessage(aiResponse, "ai");
+        
+        const reply = await getChatResponse(userText, []); 
+        addChatMessage(reply, "ai");
     });
-
-    // 게임: 이미지 클릭 시 정답 판정
+    
+    // 기타 이벤트 리스너들 (모달 등)
     fullscreenImage.addEventListener('click', (event) => {
         if (!currentGameObjects || currentGameObjects.length === 0) return;
-
         const rect = fullscreenImage.getBoundingClientRect();
         const clickX = event.clientX - rect.left;
         const clickY = event.clientY - rect.top;
-
         let foundIndex = -1;
         currentGameObjects.forEach((obj, index) => {
             const bbox = obj.boundingBox;
             if (!bbox) return;
-            
             const boxX = bbox.left * rect.width;
             const boxY = bbox.top * rect.height;
             const boxW = bbox.width * rect.width;
             const boxH = bbox.height * rect.height;
-
             if (clickX >= boxX && clickX <= boxX + boxW && clickY >= boxY && clickY <= boxY + boxH) {
                 foundIndex = index;
             }
         });
-
         if (foundIndex !== -1) {
             const obj = currentGameObjects[foundIndex];
-            
-            // 정답 박스 그리기
             const bbox = obj.boundingBox;
             const correctBox = document.createElement('div');
             correctBox.className = 'correct-box';
-            // 위치 고정
             correctBox.style.position = 'fixed'; 
             correctBox.style.left = (rect.left + bbox.left * rect.width) + 'px';
             correctBox.style.top = (rect.top + bbox.top * rect.height) + 'px';
             correctBox.style.width = (bbox.width * rect.width) + 'px';
             correctBox.style.height = (bbox.height * rect.height) + 'px';
-            
             fullscreenModal.appendChild(correctBox);
-
-            // 토스트 메시지
             showToast(`맞아! 거기에 있었네! 🎉`);
-
-            // 목록에서 제거
             currentGameObjects.splice(foundIndex, 1);
-
-            // 미션 업데이트
             updateMissionDisplay();
         }
     });
-
-    chatInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault();
-            btnSendChat.click();
-        }
-    });
-
-    btnFinishReading.addEventListener('click', async () => {
-        const isFinished = await showSystemModal("독서를 정말 마칠까요? 📚", "confirm");
-        if (isFinished) {
-            populateGallery();
-            showScreen('screen-gallery');
-        }
-    });
-
-    btnBackToStart.addEventListener('click', () => {
-        resetApp();
-        showScreen('screen-welcome');
-    });
-
-    btnGalleryPrev.addEventListener('click', () => {
-        showGallerySlide(currentSlideIndex - 1);
-    });
-    btnGalleryNext.addEventListener('click', () => {
-        showGallerySlide(currentSlideIndex + 1);
-    });
-
+    
+    chatInput.addEventListener('keydown', (event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); btnSendChat.click(); }});
+    btnFinishReading.addEventListener('click', async () => { if (await showSystemModal("독서를 정말 마칠까요? 📚", "confirm")) { populateGallery(); showScreen('screen-gallery'); }});
+    btnBackToStart.addEventListener('click', () => { resetApp(); showScreen('screen-welcome'); });
+    btnGalleryPrev.addEventListener('click', () => showGallerySlide(currentSlideIndex - 1));
+    btnGalleryNext.addEventListener('click', () => showGallerySlide(currentSlideIndex + 1));
     modalClose.addEventListener('click', closeFullscreenModal);
-
-    fullscreenModal.addEventListener('click', (event) => {
-        if (event.target === fullscreenModal) {
-            closeFullscreenModal();
-        }
-    });
-
-    mainImage.addEventListener('click', () => {
-        openFullscreenModal(mainImage.src);
-    });
-
-    gallerySlides.addEventListener('click', (event) => {
-        if (event.target.tagName === 'IMG') {
-            openFullscreenModal(event.target.src);
-        }
-    });
+    fullscreenModal.addEventListener('click', (event) => { if (event.target === fullscreenModal) closeFullscreenModal(); });
+    mainImage.addEventListener('click', () => openFullscreenModal(mainImage.src));
+    gallerySlides.addEventListener('click', (event) => { if (event.target.tagName === 'IMG') openFullscreenModal(event.target.src); });
 
 
-    // ==============================
-    // API 연동 스캐폴딩
-    // ==============================
+    // 🔽🔽🔽 실제 통신 API 함수 (간소화됨) 🔽🔽🔽
 
+    /** [API 1] 책 표지 분석 (DB조회 포함 권장) */
     async function analyzeBookCover(file) {
-        console.log("API CALL: analyzeBookCover", file.name);
-        await new Promise(r => setTimeout(r, 1000));
-        return "샘플 책 제목";
-    }
-
-    async function checkBookInDB(title) {
-        console.log("API CALL: checkBookInDB", title);
-        await new Promise(r => setTimeout(r, 500));
-        if (title === "아기 돼지 삼형제") {
-            return { characters: [{ name: "첫째 돼지", desc: "짚으로 집을 지음" }] };
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/analyze-cover`, {
+                method: 'POST',
+                body: formData
+            });
+            if (!response.ok) throw new Error('Network error');
+            // 기대 응답: { title: "...", characters: [...] }
+            return await response.json();
+        } catch (error) {
+            console.error("API Error:", error);
+            return null;
         }
-        return null;
     }
 
-    async function validateTextWithGemini(text) {
-        console.log("API CALL: validateTextWithGemini", text);
-        await new Promise(r => setTimeout(r, 500));
-        return true;
+    /** [API 2] 페이지 처리 통합 (OCR+Prompt+Gen+Detect) */
+    async function processBookPage(file, characters) {
+        const formData = new FormData();
+        formData.append('file', file);
+        // 캐릭터 정보를 JSON 문자열로 변환하여 전송
+        formData.append('characters', JSON.stringify(characters));
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/process-page`, {
+                method: 'POST',
+                body: formData
+            });
+            if (!response.ok) throw new Error('Processing failed');
+            
+            // 기대 응답: { ocrText, imageUrl, objects, aiQuestion }
+            return await response.json(); 
+        } catch (error) {
+            console.error("API Error:", error);
+            return null;
+        }
     }
 
-    async function ocrPage(file) {
-        console.log("API CALL: ocrPage", file.name);
-        await new Promise(r => setTimeout(r, 1000));
-        return "아기 돼지가 늑대를 만났어요.";
-    }
-
-    async function refineTextWithGemini(ocrText, characters) {
-        console.log("API CALL: refineTextWithGemini", ocrText);
-        await new Promise(r => setTimeout(r, 500));
-        let prompt = `${ocrText} ${characters.length > 0 ? characters[0].desc : ''}, children's book illustration style`;
-        return prompt;
-    }
-
-    async function generateImageWithStableDiffusion(prompt) {
-        console.log("API CALL: generateImageWithStableDiffusion", prompt);
-        await new Promise(r => setTimeout(r, 2000)); 
-        return "https://picsum.photos/300/200"; 
-    }
-
-    async function detectObjectsInImage(fileOrUrl) {
-        console.log("API CALL: detectObjectsInImage", fileOrUrl);
-        await new Promise(r => setTimeout(r, 1000));
-        return [
-            {
-                name: "아기 돼지",
-                confidence: 0.98,
-                boundingBox: { left: 0.1, top: 0.2, width: 0.3, height: 0.3 }
-            },
-            {
-                name: "늑대",
-                confidence: 0.85,
-                boundingBox: { left: 0.6, top: 0.5, width: 0.2, height: 0.4 }
-            }
-        ];
-    }
-
+    /** [API 3] 채팅 */
     async function getChatResponse(userText, chatHistory) {
-        console.log("API CALL: getChatResponse", userText);
-        await new Promise(r => setTimeout(r, 800));
-        return "정말 멋진 생각이네! 그 다음엔 어떻게 됐을까?";
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: userText, history: chatHistory })
+            });
+            const data = await response.json();
+            return data.reply;
+        } catch (error) {
+            console.error(error);
+            return "지금은 대답하기 어려워 😅";
+        }
     }
 
-    // ==============================
     // 앱 시작
-    // ==============================
     showScreen('screen-welcome');
 });
