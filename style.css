@@ -1,0 +1,525 @@
+/* ==============================
+   1. 설정: 글꼴, 변수, 리셋
+   ============================== */
+
+@font-face {
+    font-family: 'SchoolSafetyPictureDiary';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-5@1.0/HakgyoansimGeurimilgiTTF-R.woff2') format('woff2');
+    font-weight: normal;
+    font-display: swap;
+}
+
+:root {
+    /* 색상 팔레트 */
+    --color-primary: #a2c8c3;
+    --color-secondary: #f0e6d6;
+    --color-text: #333;
+    --color-bg: #fdfaf5;
+    --color-accent: #ffa7a2;
+    
+    /* Z-Index 계층 구조 */
+    --z-header: 100;
+    --z-modal: 1000;
+    --z-modal-overlay: 1002;
+    --z-toast: 1005;
+}
+
+* {
+    box-sizing: border-box; /* 패딩이 너비에 포함 */
+}
+
+body {
+    font-family: 'SchoolSafetyPictureDiary', 'Malgun Gothic', sans-serif;
+    font-size: 20px;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    margin: 0;
+    padding: 0;
+    
+    /* Flex 레이아웃: Header + Main 구조 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+}
+
+/* ==============================
+   2. 레이아웃: header, main 등
+   ============================== */
+
+header {
+    width: 100%;
+    text-align: center;
+    transition: all 0.3s ease-in-out;
+}
+.logo {
+    max-width: 100%;
+    aspect-ratio: 1 / 1;
+    transition: width 0.3s ease-in-out;
+}
+
+/* 첫 화면일 때 header */
+body.welcome-active header {
+    position: relative;
+    padding: 20px 0 0 0;
+    border-bottom: none;
+}
+body.welcome-active header .logo {
+    width: 250px;
+}
+
+/* 그 외 화면일 때 header (상단 고정) */
+body:not(.welcome-active) header {
+    padding: 5px 0;
+    border-bottom: 2px solid var(--color-secondary);
+    position: sticky;
+    top: 0;
+    background-color: var(--color-bg);
+    z-index: var(--z-header);
+}
+body:not(.welcome-active) header .logo {
+    width: 100px;
+}
+
+main {
+    width: 100%;
+    max-width: 480px; /* 모바일 최적화 너비 */
+    margin: 0 auto;
+    padding: 20px;
+    overflow-x: hidden;
+    
+    /* 남은 공간 채우기 */
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ==============================
+   3. 공통 컴포넌트: 버튼, 입력 창, 모달 등
+   ============================== */
+
+/* 버튼 스타일 */
+button, .btn-upload, .btn-icon {
+    font-family: inherit;
+    background-color: var(--color-primary);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 25px;
+    font-size: 20px;
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.2s;
+    line-height: 1.2;
+}
+button:hover, .btn-upload:hover {
+    background-color: #8bbbab;
+}
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* 강조 버튼 (완료, 삭제 등) */
+button.btn-accent {
+    background-color: var(--color-accent);
+    width: 100%;
+}
+button.btn-accent:hover {
+    background-color: #e09a88;
+}
+
+/* 보조 버튼 (취소 등) */
+.btn-secondary {
+    background-color: #bbb;
+}
+.btn-secondary:hover {
+    background-color: #aaa;
+}
+
+/* 아이콘 버튼 */
+.btn-icon {
+    padding: 10px;
+    font-size: 20px;
+    line-height: 1;
+}
+
+/* 입력 필드 */
+input[type="text"], textarea {
+    font-family: inherit;
+    width: 100%;
+    padding: 10px;
+    border: 2px solid var(--color-secondary);
+    border-radius: 10px;
+    font-size: 20px;
+}
+input[type="file"] {
+    display: none;
+}
+textarea {
+    resize: none;
+    height: 80px;
+}
+
+.input-group {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* ==============================
+   4. 화면/기능별 스타일
+   ============================== */
+
+.screen {
+    display: none;
+    flex-direction: column;
+    gap: 15px;
+    flex-grow: 1;
+}
+.screen.active {
+    display: flex;
+    animation: fadeIn 0.4s forwards;
+    justify-content: center; /* 기본 세로 중앙 정렬 */
+}
+
+/* --- 화면 1: Welcome --- */
+#screen-welcome {
+    text-align: center;
+    /* header 로고와의 시각적 균형을 위한 하단 여백 추가 */
+    padding-bottom: 20vh; 
+}
+
+/* --- 화면 2: Setup (등장인물) --- */
+#screen-setup-chars .input-group.char-group {
+    position: relative;
+    padding-right: 45px; /* 삭제 버튼 공간 */
+}
+#char-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+/* 첫 번째 입력 칸은 삭제 버튼 숨김 */
+#char-inputs .char-group:first-child .btn-delete-char {
+    display: none;
+}
+.btn-delete-char {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    background: var(--color-accent);
+    color: white;
+    border: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+/* --- 화면 3: Reading (메인) --- */
+#screen-reading.active {
+    justify-content: flex-start; /* 상단부터 채움 */
+}
+
+/* 상단 메인 이미지 영역 */
+#image-display-area {
+    width: 100%;
+    height: 250px;
+    background-color: #eee;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--color-primary);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+#main-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;
+    cursor: pointer;
+}
+#image-placeholder {
+    color: #888;
+}
+
+/* 채팅 영역 */
+#chat-container {
+    width: 100%;
+    height: 200px;
+    overflow-y: auto;
+    border: 2px solid var(--color-secondary);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-grow: 1; /* 남는 공간 차지 */
+}
+.chat-bubble {
+    padding: 8px 12px;
+    border-radius: 15px;
+    max-width: 70%;
+}
+.chat-bubble.user {
+    background-color: var(--color-primary);
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 5px;
+}
+.chat-bubble.ai {
+    background-color: var(--color-secondary);
+    color: var(--color-text);
+    align-self: flex-start;
+    border-bottom-left-radius: 5px;
+}
+.chat-image-container {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+}
+
+/* 하단 입력 영역 */
+#input-area {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-shrink: 0;
+}
+#chat-input {
+    flex-grow: 1;
+}
+
+/* --- 화면 4: Gallery --- */
+#gallery-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+#gallery-viewer {
+    width: 100%;
+    max-width: 350px;
+    overflow: hidden;
+    border: 2px solid var(--color-secondary);
+    border-radius: 10px;
+}
+#gallery-slides {
+    display: flex;
+    transition: transform 0.3s ease-in-out;
+    min-height: 250px;
+}
+.gallery-slide {
+    width: 100%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.gallery-slide img {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    cursor: pointer;
+}
+#gallery-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 200px;
+}
+#gallery-pagination {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* ==============================
+   5. 모달 관련
+   ============================== */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    z-index: var(--z-modal);
+    
+    /* Flex Centering */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /* Transition */
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.modal-overlay.show {
+    visibility: visible;
+    opacity: 1;
+}
+
+.modal-content {
+    max-width: 90%;
+    max-height: 80%;
+    object-fit: contain;
+    transform: scale(0.9);
+    transition: transform 0.2s ease;
+}
+.modal-overlay.show .modal-content {
+    transform: scale(1);
+}
+
+.modal-close {
+    position: absolute;
+    top: 15px;
+    right: 35px;
+    color: #f1f1f1;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: var(--z-toast);
+}
+
+/* 시스템 모달 (Alert/Confirm) */
+.system-modal-box {
+    background-color: var(--color-bg);
+    padding: 30px 20px;
+    border-radius: 20px;
+    width: 80%;
+    max-width: 320px;
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    border: 2px solid var(--color-primary);
+    transform: translateY(20px);
+    transition: transform 0.3s ease;
+}
+.modal-overlay.show .system-modal-box {
+    transform: translateY(0);
+}
+#system-modal-msg {
+    font-size: 22px;
+    margin-bottom: 30px;
+    word-break: keep-all;
+    line-height: 1.4;
+}
+.system-modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+.system-modal-buttons button {
+    flex: 1;
+    max-width: 100px;
+}
+
+/* ==============================
+   6. 게임 요소: Mission, Toast, Badge 등
+   ============================== */
+
+/* 게임 배지 (채팅창 내) */
+.game-badge {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background-color: rgba(255, 255, 255, 0.9);
+    color: var(--color-primary);
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 14px;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    pointer-events: none;
+    animation: bounce 2s infinite;
+}
+
+/* 미션 바 (모달 상단) */
+#game-mission-bar {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 10px 25px;
+    border-radius: 50px;
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--color-text);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    z-index: var(--z-modal-overlay);
+    display: none;
+    white-space: nowrap;
+}
+#game-mission-bar .highlight {
+    color: var(--color-primary);
+    font-weight: 900;
+}
+
+/* 토스트 메시지 (화면 하단 알림) */
+#game-toast {
+    position: absolute;
+    bottom: 10%;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    padding: 12px 30px;
+    border-radius: 30px;
+    font-size: 20px;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: var(--z-toast);
+    pointer-events: none;
+    white-space: nowrap;
+}
+#game-toast.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* 정답 박스 시각 효과 */
+.correct-box {
+    position: absolute;
+    border: 4px solid #FFD700;
+    border-radius: 15px;
+    box-shadow: 0 0 20px #FFD700, inset 0 0 20px rgba(255, 215, 0, 0.5);
+    animation: pulseBox 1s infinite alternate;
+    z-index: var(--z-modal-overlay);
+    pointer-events: none;
+}
+
+/* ==============================
+   7. 키 프레임
+   ============================== */
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+@keyframes pulseBox {
+    from { opacity: 0.7; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1.02); }
+}

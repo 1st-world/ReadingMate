@@ -1,0 +1,599 @@
+document.addEventListener('DOMContentLoaded', () => {
+    // 상태 관리 변수
+    let currentBook = {
+        title: '',
+        characters: [],
+        generatedImages: []
+    };
+    let currentSlideIndex = 0;
+    let currentGameObjects = []; // 현재 게임 진행 상태 변수 (복사본)
+
+    // DOM 요소 선택
+    const screens = document.querySelectorAll('.screen');
+    const btnStartSetup = document.getElementById('btn-start-setup');
+    const btnGotoChars = document.getElementById('btn-goto-chars');
+    const btnStartReading = document.getElementById('btn-start-reading');
+    const btnAddChar = document.getElementById('btn-add-char');
+    const coverUpload = document.getElementById('cover-upload');
+    const bookTitleInput = document.getElementById('book-title');
+    const charInputsContainer = document.getElementById('char-inputs');
+    const pageUpload = document.getElementById('page-upload');
+    const chatInput = document.getElementById('chat-input');
+    const btnSendChat = document.getElementById('btn-send-chat');
+    const chatContainer = document.getElementById('chat-container');
+    const mainImage = document.getElementById('main-image');
+    const imagePlaceholder = document.getElementById('image-placeholder');
+    const btnFinishReading = document.getElementById('btn-finish-reading');
+    const btnBackToStart = document.getElementById('btn-back-to-start');
+    const galleryContainer = document.getElementById('gallery-container');
+    const gallerySlides = document.getElementById('gallery-slides');
+    const btnGalleryPrev = document.getElementById('btn-gallery-prev');
+    const btnGalleryNext = document.getElementById('btn-gallery-next');
+    const galleryPagination = document.getElementById('gallery-pagination');
+
+    // 모달 관련 요소
+    const fullscreenModal = document.getElementById('fullscreen-modal');
+    const fullscreenImage = document.getElementById('fullscreen-image');
+    const modalClose = document.querySelector('.modal-close');
+    const systemModal = document.getElementById('system-modal');
+    const systemModalMsg = document.getElementById('system-modal-msg');
+    const btnSystemConfirm = document.getElementById('btn-system-confirm');
+    const btnSystemCancel = document.getElementById('btn-system-cancel');
+
+    // 게임 관련 요소
+    const gameMissionBar = document.getElementById('game-mission-bar');
+    const missionTargetName = document.getElementById('mission-target-name');
+    const gameToast = document.getElementById('game-toast');
+
+
+    // ==============================
+    // 유틸리티 함수
+    // ==============================
+
+    /**
+     * 화면 전환 함수
+     */
+    function showScreen(screenId) {
+        if (screenId === 'screen-welcome') {
+            document.body.classList.add('welcome-active');
+        } else {
+            document.body.classList.remove('welcome-active');
+        }
+
+        screens.forEach(screen => {
+            screen.classList.remove('active');
+        });
+        document.getElementById(screenId).classList.add('active');
+
+        window.scrollTo(0, 0);
+    }
+
+    /**
+     * 채팅 메시지 추가
+     */
+    function addChatMessage(text, sender) {
+        const bubble = document.createElement('div');
+        bubble.classList.add('chat-bubble', sender);
+        bubble.textContent = text;
+        chatContainer.appendChild(bubble);
+        chatContainer.scrollTop = chatContainer.scrollHeight; 
+    }
+
+    /**
+     * 메인 이미지 업데이트
+     */
+    function updateMainImage(imageUrl) {
+        if (imageUrl) {
+            mainImage.src = imageUrl;
+            mainImage.style.display = 'block';
+            imagePlaceholder.style.display = 'none';
+        } else {
+            mainImage.style.display = 'none';
+            imagePlaceholder.style.display = 'block';
+        }
+    }
+
+    /**
+     * 채팅 창에 이미지 추가 (게임 기능 포함)
+     */
+    function addChatImage(imageUrl, objects = []) {
+        const bubble = document.createElement('div');
+        bubble.classList.add('chat-bubble', 'ai');
+
+        // 이미지 컨테이너 생성
+        const container = document.createElement('div');
+        container.className = 'chat-image-container';
+
+        const img = document.createElement('img');
+        img.src = imageUrl;
+        img.style.maxWidth = '100%';
+        img.style.borderRadius = '10px';
+        img.style.cursor = 'pointer';
+
+        // 이미지 태그에 정답 데이터 저장 (Dataset 활용)
+        if (objects && objects.length > 0) {
+            img.dataset.objects = JSON.stringify(objects); 
+        }
+
+        // 이미지 클릭 시 모달 열기 (데이터셋에서 읽어오기)
+        img.addEventListener('click', () => {
+            const storedObjects = img.dataset.objects ? JSON.parse(img.dataset.objects) : [];
+            openFullscreenModal(imageUrl, storedObjects);
+        });
+
+        container.appendChild(img);
+
+        // "찾아봐!" 배지 추가
+        if (objects && objects.length > 0) {
+            const badge = document.createElement('div');
+            badge.className = 'game-badge';
+            badge.innerHTML = '🔎 찾아봐!';
+            container.appendChild(badge);
+        }
+
+        bubble.appendChild(container);
+        chatContainer.appendChild(bubble);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // 게임: 미션 바 업데이트
+    function updateMissionDisplay() {
+        if (currentGameObjects.length > 0) {
+            gameMissionBar.style.display = 'block';
+            // 남은 것 중 첫 번째를 목표로 제시
+            missionTargetName.textContent = currentGameObjects[0].name;
+        } else {
+            gameMissionBar.style.display = 'none';
+            showToast("와! 모두 다 찾았어! 👏👏");
+        }
+    }
+
+    // 게임: 토스트 메시지 표시
+    function showToast(message) {
+        gameToast.textContent = message;
+        gameToast.classList.add('show');
+
+        setTimeout(() => {
+            gameToast.classList.remove('show');
+        }, 2000); 
+    }
+
+    /**
+     * 시스템 모달 (Alert/Confirm)
+     */
+    function showSystemModal(message, type = 'alert') {
+        return new Promise((resolve) => {
+            systemModalMsg.textContent = message;
+
+            if (type === 'confirm') {
+                btnSystemCancel.style.display = 'inline-block';
+            } else {
+                btnSystemCancel.style.display = 'none';
+            }
+
+            systemModal.classList.add('show');
+
+            const handleConfirm = () => {
+                closeSystemModal();
+                resolve(true);
+            };
+            const handleCancel = () => {
+                closeSystemModal();
+                resolve(false);
+            };
+
+            btnSystemConfirm.onclick = handleConfirm;
+            btnSystemCancel.onclick = handleCancel;
+        });
+    }
+
+    function closeSystemModal() {
+        systemModal.classList.remove('show');
+    }
+
+    // 갤러리 슬라이드 이동
+    function showGallerySlide(index) {
+        const totalSlides = gallerySlides.querySelectorAll('.gallery-slide').length;
+
+        if (totalSlides === 0 || (totalSlides === 1 && !gallerySlides.querySelector('img'))) {
+            galleryPagination.textContent = "0 / 0";
+            btnGalleryPrev.disabled = true;
+            btnGalleryNext.disabled = true;
+            return;
+        }
+
+        currentSlideIndex = Math.max(0, Math.min(index, totalSlides - 1));
+        const slideWidth = gallerySlides.clientWidth; 
+        gallerySlides.style.transform = `translateX(-${currentSlideIndex * slideWidth}px)`;
+        galleryPagination.textContent = `${currentSlideIndex + 1} / ${totalSlides}`;
+
+        btnGalleryPrev.disabled = (currentSlideIndex === 0);
+        btnGalleryNext.disabled = (currentSlideIndex === totalSlides - 1);
+    }
+
+    // 갤러리 채우기
+    function populateGallery() {
+        gallerySlides.innerHTML = '';
+        if (currentBook.generatedImages.length === 0) {
+            gallerySlides.innerHTML = '<div class="gallery-slide"><p>이번 독서에서는 생성된 그림이 없네요.</p></div>';
+        } else {
+            currentBook.generatedImages.forEach(imgUrl => {
+                const slide = document.createElement('div');
+                slide.className = 'gallery-slide';
+                slide.innerHTML = `<img src="${imgUrl}" alt="생성된 이야기 그림">`;
+                gallerySlides.appendChild(slide);
+            });
+        }
+        showGallerySlide(0);
+    }
+
+    // 앱 초기화 (처음으로)
+    function resetApp() {
+        currentBook = {
+            title: '',
+            characters: [],
+            generatedImages: []
+        };
+        currentSlideIndex = 0;
+        bookTitleInput.value = '';
+
+        charInputsContainer.innerHTML = `
+            <div class="input-group char-group">
+                <input type="text" class="char-name" placeholder="이름 (예: 아기 돼지)">
+                <textarea class="char-desc" placeholder="어떻게 생겼어? (예: 분홍색 코, 파란 멜빵바지)"></textarea>
+            </div>`;
+
+        updateMainImage(null);
+        chatContainer.innerHTML = '';
+        populateGallery();
+        document.body.classList.add('welcome-active');
+    }
+
+    /**
+     * 전체 화면 모달 열기 (게임 시작)
+     */
+    function openFullscreenModal(imageUrl, objects = []) {
+        if (!imageUrl) return;
+
+        fullscreenImage.src = imageUrl;
+
+        // 원본 배열 복사 (게임 재시작 가능하도록)
+        currentGameObjects = JSON.parse(JSON.stringify(objects));
+
+        // 이전 정답 박스 제거
+        const oldBoxes = fullscreenModal.querySelectorAll('.correct-box');
+        oldBoxes.forEach(box => box.remove());
+
+        // 미션 바 설정
+        if (currentGameObjects.length > 0) {
+            updateMissionDisplay();
+        } else {
+            gameMissionBar.style.display = 'none';
+        }
+
+        fullscreenModal.classList.add('show');
+    }
+
+    // 모달 닫기
+    function closeFullscreenModal() {
+        fullscreenModal.classList.remove('show');
+    }
+
+
+    // ==============================
+    // 이벤트 리스너
+    // ==============================
+
+    btnStartSetup.addEventListener('click', () => {
+        showScreen('screen-setup-book');
+    });
+
+    // 책 표지 업로드
+    coverUpload.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const title = await analyzeBookCover(file);
+        if (title) {
+            bookTitleInput.value = title;
+            currentBook.title = title;
+
+            const bookInfo = await checkBookInDB(title);
+            if (bookInfo && bookInfo.characters) {
+                charInputsContainer.innerHTML = ''; 
+                bookInfo.characters.forEach(char => {
+                     const charGroup = document.createElement('div');
+                     charGroup.classList.add('input-group', 'char-group');
+                     charGroup.innerHTML = `
+                        <input type="text" class="char-name" value="${char.name || ''}">
+                        <textarea class="char-desc" placeholder="어떻게 생겼어?">${char.desc || ''}</textarea>
+                        <button type="button" class="btn-delete-char">×</button>
+                    `;
+                    charInputsContainer.appendChild(charGroup);
+                });
+            }
+        }
+        event.target.value = null;
+    });
+
+    btnGotoChars.addEventListener('click', () => {
+        currentBook.title = bookTitleInput.value;
+        if (!currentBook.title) {
+            showSystemModal("책 제목을 입력하거나 표지를 보여줘!", "alert");
+            return;
+        }
+        showScreen('screen-setup-chars');
+    });
+
+    btnAddChar.addEventListener('click', () => {
+        const charGroup = document.createElement('div');
+        charGroup.classList.add('input-group', 'char-group');
+        charGroup.innerHTML = `
+            <input type="text" class="char-name" placeholder="이름 (예: 아기 돼지)">
+            <textarea class="char-desc" placeholder="어떻게 생겼어? (예: 분홍색 코, 파란 멜빵바지)"></textarea>
+            <button type="button" class="btn-delete-char">×</button>
+        `;
+        charInputsContainer.appendChild(charGroup);
+        charGroup.scrollIntoView({ behavior: 'smooth'});
+    });
+
+    charInputsContainer.addEventListener('click', (event) => {
+        if (event.target.classList.contains('btn-delete-char')) {
+            event.target.closest('.input-group').remove();
+        }
+    });
+
+    btnStartReading.addEventListener('click', async () => {
+        currentBook.characters = [];
+        const charGroups = charInputsContainer.querySelectorAll('.char-group');
+
+        for (const group of charGroups) {
+            const name = group.querySelector('.char-name').value;
+            const desc = group.querySelector('.char-desc').value;
+
+            if (name) {
+                const isSafe = await validateTextWithGemini(name + ": " + desc);
+                if (isSafe) {
+                    currentBook.characters.push({ name, desc });
+                } else {
+                    await showSystemModal(`'${name}'의 설명에 부적절한 내용이 있어! 수정해줘.`, "alert");
+                    return;
+                }
+            } else if (desc) {
+                await showSystemModal("등장인물의 '이름'을 꼭 입력해줘!", "alert");
+                group.querySelector('.char-name').focus();
+                return;
+            }
+        }
+
+        addChatMessage(`좋아! '${currentBook.title || '이 책'}' 읽기를 시작하자. 책 페이지를 찍어서 올려주면 그림을 그려줄게!`, "ai");
+        showScreen('screen-reading');
+    });
+
+    // 페이지 업로드 로직
+    pageUpload.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        addChatMessage("페이지를 읽고 그림을 그리는 중...", "ai");
+        updateMainImage(null); 
+
+        // 1. OCR
+        const ocrText = await ocrPage(file);
+        if (!ocrText) {
+            addChatMessage("앗, 글자를 읽지 못했어. 다시 찍어줄래?", "ai");
+            return;
+        }
+
+        // 2. 프롬프트 정제
+        const refinedPrompt = await refineTextWithGemini(ocrText, currentBook.characters);
+
+        // 3. 이미지 생성
+        const imageUrl = await generateImageWithStableDiffusion(refinedPrompt);
+        if (!imageUrl) {
+             addChatMessage("앗, 그림을 그리다가 실패했어... 😭", "ai");
+             return;
+        }
+
+        // 메인 이미지 업데이트
+        updateMainImage(imageUrl);
+        currentBook.generatedImages.push(imageUrl);
+
+        // 4. 객체 탐지
+        const objects = await detectObjectsInImage(file);
+
+        // objectString 변수 생성
+        let objectString = "";
+        if (objects && objects.length > 0) {
+            const names = objects.map(o => o.name).join(', ');
+            objectString = `그림에서 ${names}(이)가 보여.`;
+        }
+
+        // 채팅 창에 이미지 추가
+        addChatImage(imageUrl, objects);
+
+        // 5. 후속 질문
+        const followUpQuestion = await getChatResponse(`"${ocrText}"라는 내용의 그림이야. ${objectString} 이 그림에 대해 아이에게 할 질문 하나만 해줘.`, []);
+        addChatMessage(followUpQuestion, "ai");
+
+        event.target.value = null;
+    });
+
+    btnSendChat.addEventListener('click', async () => {
+        const userText = chatInput.value;
+        if (!userText) return;
+
+        addChatMessage(userText, "user");
+        chatInput.value = "";
+        const aiResponse = await getChatResponse(userText, []);
+        addChatMessage(aiResponse, "ai");
+    });
+
+    // 게임: 이미지 클릭 시 정답 판정
+    fullscreenImage.addEventListener('click', (event) => {
+        if (!currentGameObjects || currentGameObjects.length === 0) return;
+
+        const rect = fullscreenImage.getBoundingClientRect();
+        const clickX = event.clientX - rect.left;
+        const clickY = event.clientY - rect.top;
+
+        let foundIndex = -1;
+        currentGameObjects.forEach((obj, index) => {
+            const bbox = obj.boundingBox;
+            if (!bbox) return;
+            
+            const boxX = bbox.left * rect.width;
+            const boxY = bbox.top * rect.height;
+            const boxW = bbox.width * rect.width;
+            const boxH = bbox.height * rect.height;
+
+            if (clickX >= boxX && clickX <= boxX + boxW && clickY >= boxY && clickY <= boxY + boxH) {
+                foundIndex = index;
+            }
+        });
+
+        if (foundIndex !== -1) {
+            const obj = currentGameObjects[foundIndex];
+            
+            // 정답 박스 그리기
+            const bbox = obj.boundingBox;
+            const correctBox = document.createElement('div');
+            correctBox.className = 'correct-box';
+            // 위치 고정
+            correctBox.style.position = 'fixed'; 
+            correctBox.style.left = (rect.left + bbox.left * rect.width) + 'px';
+            correctBox.style.top = (rect.top + bbox.top * rect.height) + 'px';
+            correctBox.style.width = (bbox.width * rect.width) + 'px';
+            correctBox.style.height = (bbox.height * rect.height) + 'px';
+            
+            fullscreenModal.appendChild(correctBox);
+
+            // 토스트 메시지
+            showToast(`맞아! 거기에 있었네! 🎉`);
+
+            // 목록에서 제거
+            currentGameObjects.splice(foundIndex, 1);
+
+            // 미션 업데이트
+            updateMissionDisplay();
+        }
+    });
+
+    chatInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            btnSendChat.click();
+        }
+    });
+
+    btnFinishReading.addEventListener('click', async () => {
+        const isFinished = await showSystemModal("독서를 정말 마칠까요? 📚", "confirm");
+        if (isFinished) {
+            populateGallery();
+            showScreen('screen-gallery');
+        }
+    });
+
+    btnBackToStart.addEventListener('click', () => {
+        resetApp();
+        showScreen('screen-welcome');
+    });
+
+    btnGalleryPrev.addEventListener('click', () => {
+        showGallerySlide(currentSlideIndex - 1);
+    });
+    btnGalleryNext.addEventListener('click', () => {
+        showGallerySlide(currentSlideIndex + 1);
+    });
+
+    modalClose.addEventListener('click', closeFullscreenModal);
+
+    fullscreenModal.addEventListener('click', (event) => {
+        if (event.target === fullscreenModal) {
+            closeFullscreenModal();
+        }
+    });
+
+    mainImage.addEventListener('click', () => {
+        openFullscreenModal(mainImage.src);
+    });
+
+    gallerySlides.addEventListener('click', (event) => {
+        if (event.target.tagName === 'IMG') {
+            openFullscreenModal(event.target.src);
+        }
+    });
+
+
+    // ==============================
+    // API 연동 스캐폴딩
+    // ==============================
+
+    async function analyzeBookCover(file) {
+        console.log("API CALL: analyzeBookCover", file.name);
+        await new Promise(r => setTimeout(r, 1000));
+        return "샘플 책 제목";
+    }
+
+    async function checkBookInDB(title) {
+        console.log("API CALL: checkBookInDB", title);
+        await new Promise(r => setTimeout(r, 500));
+        if (title === "아기 돼지 삼형제") {
+            return { characters: [{ name: "첫째 돼지", desc: "짚으로 집을 지음" }] };
+        }
+        return null;
+    }
+
+    async function validateTextWithGemini(text) {
+        console.log("API CALL: validateTextWithGemini", text);
+        await new Promise(r => setTimeout(r, 500));
+        return true;
+    }
+
+    async function ocrPage(file) {
+        console.log("API CALL: ocrPage", file.name);
+        await new Promise(r => setTimeout(r, 1000));
+        return "아기 돼지가 늑대를 만났어요.";
+    }
+
+    async function refineTextWithGemini(ocrText, characters) {
+        console.log("API CALL: refineTextWithGemini", ocrText);
+        await new Promise(r => setTimeout(r, 500));
+        let prompt = `${ocrText} ${characters.length > 0 ? characters[0].desc : ''}, children's book illustration style`;
+        return prompt;
+    }
+
+    async function generateImageWithStableDiffusion(prompt) {
+        console.log("API CALL: generateImageWithStableDiffusion", prompt);
+        await new Promise(r => setTimeout(r, 2000)); 
+        return "https://picsum.photos/300/200"; 
+    }
+
+    async function detectObjectsInImage(fileOrUrl) {
+        console.log("API CALL: detectObjectsInImage", fileOrUrl);
+        await new Promise(r => setTimeout(r, 1000));
+        return [
+            {
+                name: "아기 돼지",
+                confidence: 0.98,
+                boundingBox: { left: 0.1, top: 0.2, width: 0.3, height: 0.3 }
+            },
+            {
+                name: "늑대",
+                confidence: 0.85,
+                boundingBox: { left: 0.6, top: 0.5, width: 0.2, height: 0.4 }
+            }
+        ];
+    }
+
+    async function getChatResponse(userText, chatHistory) {
+        console.log("API CALL: getChatResponse", userText);
+        await new Promise(r => setTimeout(r, 800));
+        return "정말 멋진 생각이네! 그 다음엔 어떻게 됐을까?";
+    }
+
+    // ==============================
+    // 앱 시작
+    // ==============================
+    showScreen('screen-welcome');
+});
