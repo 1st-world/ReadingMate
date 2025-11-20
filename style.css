@@ -112,7 +112,7 @@ button, .btn-upload, .btn-icon {
     transition: background-color 0.2s;
     line-height: 1.2;
 }
-button:hover, .btn-upload:hover {
+button:hover, .btn-upload:hover, .btn-icon:hover {
     background-color: #96CAE4;
 }
 button:disabled {
@@ -139,7 +139,8 @@ button.btn-accent:hover {
 
 /* 아이콘 버튼 */
 .btn-icon {
-    padding: 10px;
+    padding: 12px;
+    border-radius: 10px;
     font-size: 20px;
     line-height: 1;
 }
@@ -180,7 +181,7 @@ textarea {
 }
 .screen.active {
     display: flex;
-    animation: fadeIn 0.4s forwards;
+    animation: fadeIn 1.2s forwards;
     justify-content: center; /* 기본 세로 중앙 정렬 */
 }
 
@@ -254,6 +255,20 @@ textarea {
     color: #888;
 }
 
+/* 메인 이미지 스켈레톤 로딩 */
+.skeleton-loading {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeletonLoading 1.5s infinite;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    font-weight: bold;
+}
+
 /* 채팅 영역 */
 #chat-container {
     width: 100%;
@@ -289,6 +304,22 @@ textarea {
     display: inline-block;
     max-width: 100%;
 }
+
+/* 점 3개(…) 로딩 애니메이션 */
+.loading-dots {
+    display: inline-block;
+}
+.loading-dots span {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin: 0 2px;
+    background-color: #888;
+    border-radius: 50%;
+    animation: bounceDots 1.4s infinite ease-in-out both;
+}
+.loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+.loading-dots span:nth-child(2) { animation-delay: -0.16s; }
 
 /* 하단 입력 영역 */
 #input-area {
@@ -513,13 +544,19 @@ textarea {
     from { opacity: 0; }
     to { opacity: 1; }
 }
-
 @keyframes bounce {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-5px); }
 }
-
 @keyframes pulseBox {
     from { opacity: 0.7; transform: scale(0.98); }
     to { opacity: 1; transform: scale(1.02); }
+}
+@keyframes bounceDots {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1); }
+}
+@keyframes skeletonLoading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
