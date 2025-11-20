@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /** 채팅 창에 이미지 추가 (게임 기능 + 상상력 버튼 포함 + confidence 필터링)
+    /** 채팅 창에 이미지 추가 (게임 기능 + 재생성 버튼 포함 + confidence 필터링)
      */
     function addChatImage(imageUrl, objects = [], sdPrompt = null) {
         // confidence 기반 객체 필터링
@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bubble.appendChild(container);
         messageGroup.appendChild(bubble);
 
-        // 상상력(재생성) 버튼 추가
+        // 재생성 버튼 추가
         if (sdPrompt) {
             const regenBtn = document.createElement('button');
             regenBtn.className = 'regenerate-btn';
@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
-    /** 상상력 버튼 클릭 시 처리 함수
+    /** 재생성 버튼 클릭 시 처리 함수
      */
     async function handleRegenerate(imgElement, btnElement) {
         const prompt = imgElement.dataset.prompt;
@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 갤러리에 추가
             currentBook.generatedImages.push(result.imageUrl);
 
-            showToast("짜잔! 상상력으로 만든 새 그림이야! ✨");
+            showToast("짜잔! 새로 그린 그림이야! ✨");
         } else {
             showToast("그림을 다시 그리는 데 실패했어 😭");
         }
@@ -360,36 +360,43 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
         let msgIndex = 0;
 
-        // 로딩 버블 생성
+        // 채팅 창: 점 3개(…) 애니메이션
         const bubble = document.createElement('div');
-        bubble.classList.add('chat-bubble', 'ai', 'loading-bubble'); // 식별용 클래스 추가
+        bubble.classList.add('chat-bubble', 'ai', 'loading-bubble');
         bubble.innerHTML = `
-            <span id="loading-text">${messages[0]}</span>
-            <div class="loading-dots"><span></span><span></span><span></span></div>
+            <div class="loading-dots" style="margin: 5px 0;">
+                <span></span><span></span><span></span>
+            </div>
         `;
         chatContainer.appendChild(bubble);
         chatContainer.scrollTop = chatContainer.scrollHeight;
 
-        // 메인 이미지 영역에 스켈레톤 로딩 표시
+        // 메인 이미지 영역: 스켈레톤 로딩
         mainImage.style.display = 'none';
         imagePlaceholder.style.display = 'none';
 
-        // 기존 스켈레톤 제거
-        const oldSkeleton = document.getElementById('skeleton-loader');
-        if (oldSkeleton) oldSkeleton.remove();
+        // 기존 오버레이 제거
+        const oldOverlay = document.getElementById('loading-text-overlay');
+        if (oldOverlay) oldOverlay.remove();
 
-        const skeleton = document.createElement('div');
-        skeleton.id = 'skeleton-loader';
-        skeleton.className = 'skeleton-loading';
-        skeleton.textContent = "그림 그리는 중...";
-        document.getElementById('image-display-area').appendChild(skeleton);
+        // 새 오버레이 생성
+        const overlay = document.createElement('div');
+        overlay.id = 'loading-text-overlay';
+        overlay.innerHTML = `<div id="loading-text-message">${messages[0]}</div>`;
+        document.getElementById('image-display-area').appendChild(overlay);
 
-        // 자동으로 메시지 변경 (5초 간격)
+        // 텍스트 순환 (6초 간격)
+        const textElement = document.getElementById('loading-text-message');
         loadingInterval = setInterval(() => {
             msgIndex = (msgIndex + 1) % messages.length;
-            const textSpan = document.getElementById('loading-text');
-            if (textSpan) { textSpan.textContent = messages[msgIndex]; }
-        }, 5000);
+            if (textElement) {
+                textElement.classList.add('fade-text');
+                setTimeout(() => {
+                    textElement.textContent = messages[msgIndex];
+                    textElement.classList.remove('fade-text');
+                }, 500); // CSS transition 값과 맞춤
+            }
+        }, 6000);
     }
 
     function stopLoadingSequence() {
@@ -398,8 +405,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // 로딩 버블 및 스켈레톤 제거
         const loadingBubble = document.querySelector('.loading-bubble');
         if (loadingBubble) loadingBubble.remove();
-        const skeleton = document.getElementById('skeleton-loader');
-        if (skeleton) skeleton.remove();
+        const overlay = document.getElementById('loading-text-overlay');
+        if (overlay) overlay.remove();
     }
 
 
@@ -439,13 +446,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnAddChar.addEventListener('click', () => {
         const charGroup = document.createElement('div');
-        charGroup.classList.add('input-group', 'char-group');
+        charGroup.classList.add('input-group', 'char-group', 'enter');
         charGroup.innerHTML = `
             <input type="text" class="char-name" placeholder="이름 (예: 아기 돼지)">
             <textarea class="char-desc" placeholder="어떻게 생겼어? (예: 분홍색 코, 파란 멜빵바지)"></textarea>
             <button type="button" class="btn-delete-char">×</button>
         `;
         charInputsContainer.appendChild(charGroup);
+
+        setTimeout(() => charGroup.classList.remove('enter'), 300);
         charGroup.scrollIntoView({ behavior: 'smooth'});
         updateStartButtonState();
     });
@@ -455,8 +464,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     charInputsContainer.addEventListener('click', (event) => {
         if (event.target.classList.contains('btn-delete-char')) {
-            event.target.closest('.input-group').remove();
-            updateStartButtonState();
+            const targetGroup = event.target.closest('.input-group');
+            targetGroup.classList.add('leave');
+            setTimeout(() => {
+                targetGroup.remove();
+                updateStartButtonState();
+            }, 300); // CSS transition 값과 맞춤
         }
     });
 
@@ -675,7 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /** * [API 4] 이미지 재생성 (상상력)
+    /** * [API 4] 이미지 재생성
      * 명세: 요청 { prompt: "..." } -> 응답 { imageUrl, objects }
      */
     async function regenerateImage(prompt) {
