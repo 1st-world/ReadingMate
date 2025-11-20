@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let loadingInterval;
     let currentGameObjects = [];
     let currentSlideIndex = 0;
+    let chatHistory = [];
 
     // DOM 요소 선택
     const screens = document.querySelectorAll('.screen');
@@ -107,27 +108,43 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /** 채팅 창에 이미지 추가 (게임 기능 포함)
+    /** 채팅 창에 이미지 추가 (게임 기능 + 상상력 버튼 포함 + confidence 필터링)
      */
-    function addChatImage(imageUrl, objects = []) {
+    function addChatImage(imageUrl, objects = [], sdPrompt = null) {
+        // confidence 기반 객체 필터링
+        const CONFIDENCE_THRESHOLD = 0.7;
+        const validObjects = (objects || []).filter(obj => {
+            return obj.confidence >= CONFIDENCE_THRESHOLD;
+        });
+
+        // 메시지 그룹 컨테이너(Flexbox) 생성
+        const messageGroup = document.createElement('div');
+        messageGroup.className = 'chat-message-group';
+
+        // 말풍선 생성
         const bubble = document.createElement('div');
         bubble.classList.add('chat-bubble', 'ai');
+        bubble.style.maxWidth = '100%'; // 그룹 내에서 꽉 차게
+        bubble.style.margin = '0'; // 그룹이 마진을 담당하므로 초기화
+
         const container = document.createElement('div');
         container.className = 'chat-image-container';
+
         const img = document.createElement('img');
         img.src = resolveImageUrl(imageUrl);
         img.style.maxWidth = '100%';
         img.style.borderRadius = '10px';
         img.style.cursor = 'pointer';
 
-        // 이미지 태그에 정답 데이터 저장 (데이터셋 활용)
-        if (objects && objects.length > 0) {
-            img.dataset.objects = JSON.stringify(objects); 
-        }
+        // 필터링된 정답 데이터 저장
+        if (validObjects.length > 0) { img.dataset.objects = JSON.stringify(validObjects); }
+
+        // 프롬프트 데이터 저장
+        if (sdPrompt) { img.dataset.prompt = sdPrompt; }
 
         img.addEventListener('click', () => {
             const storedObjects = img.dataset.objects ? JSON.parse(img.dataset.objects) : [];
-            openFullscreenModal(imageUrl, storedObjects);
+            openFullscreenModal(img.src, storedObjects);
         });
 
         container.appendChild(img);
@@ -140,8 +157,88 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         bubble.appendChild(container);
-        chatContainer.appendChild(bubble);
+        messageGroup.appendChild(bubble);
+
+        // 상상력(재생성) 버튼 추가
+        if (sdPrompt) {
+            const regenBtn = document.createElement('button');
+            regenBtn.className = 'regenerate-btn';
+            regenBtn.innerHTML = '🔄';
+            regenBtn.title = "다른 그림 생성";
+
+            regenBtn.addEventListener('click', () => { handleRegenerate(img, regenBtn); });
+
+            messageGroup.appendChild(regenBtn);
+        }
+
+        chatContainer.appendChild(messageGroup);
         chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    /** 상상력 버튼 클릭 시 처리 함수
+     */
+    async function handleRegenerate(imgElement, btnElement) {
+        const prompt = imgElement.dataset.prompt;
+        if (!prompt) { showToast("이건 다시 그릴 수 없어요 🥲"); return; }
+        if (!await showSystemModal("상상력을 발휘해 볼까? 🎨", "confirm")) return;
+
+        btnElement.classList.add('loading');
+
+        const result = await regenerateImage(prompt);
+
+        btnElement.classList.remove('loading');
+
+        if (result && result.imageUrl) {
+            // 이미지 소스 교체
+            const newUrl = resolveImageUrl(result.imageUrl);
+            imgElement.src = newUrl;
+
+            // 정답 데이터 갱신 (Confidence 필터링 포함)
+            if (result.objects) {
+                const CONFIDENCE_THRESHOLD = 0.7; 
+                const validObjects = result.objects.filter(obj => {
+                    return obj.confidence === undefined || obj.confidence >= CONFIDENCE_THRESHOLD;
+                });
+                imgElement.dataset.objects = JSON.stringify(validObjects);
+                
+                // 이전에 객체가 없어서 배지가 없었다가 이번에 생겼다면 배지를 추가하는 로직 필요
+            }
+
+            // 갤러리에 추가
+            currentBook.generatedImages.push(result.imageUrl);
+
+            showToast("짜잔! 상상력으로 만든 새 그림이야! ✨");
+        } else {
+            showToast("그림을 다시 그리는 데 실패했어 😭");
+        }
+    }
+
+    /** 여러 줄의 질문 텍스트에서 하나를 랜덤으로 뽑고 정제하는 함수
+     */
+    function pickRandomQuestion(text) {
+        if (!text) return "이 그림에 대해 어떻게 생각해?";
+
+        // 1. 줄바꿈(\n)을 기준으로 나눔
+        const questions = text.split('\n');
+
+        // 2. 빈 줄 제거 및 유효한 질문만 필터링
+        const validQuestions = questions.filter(q => q.trim().length > 0);
+
+        if (validQuestions.length === 0) return text;
+
+        // 3. 랜덤으로 하나 선택
+        const randomIndex = Math.floor(Math.random() * validQuestions.length);
+        let selected = validQuestions[randomIndex];
+
+        // 4. 앞부분의 "Q1.", "1.", "- " 등 불필요한 기호 제거 (정규식 사용)
+        // ^ : 시작 부분
+        // Q? : Q가 있거나 없거나
+        // \d+ : 숫자 1개 이상
+        // [\.\)] : 점(.)이나 괄호())
+        // \s* : 공백
+        selected = selected.replace(/^(Q?\d+[\.\)]|-|•)\s*/i, "").trim();
+
+        return selected;
     }
 
     /** 게임: 미션 바 업데이트
@@ -219,6 +316,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetApp() {
         currentBook = { title: '', characters: [], generatedImages: [] };
         currentSlideIndex = 0;
+        currentGameObjects = [];
+        chatHistory = [];
         bookTitleInput.value = '';
         charInputsContainer.innerHTML = `
             <div class="input-group char-group">
@@ -406,11 +505,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // 채팅 창에 이미지 추가 (게임 데이터 'objects' 포함)
-            addChatImage(result.imageUrl, result.objects);
+            addChatImage(result.imageUrl, result.objects, result.sd_prompt);
 
-            // AI 질문 출력 (aiQuestion 필드 사용)
-            const aiMsg = result.aiQuestion || `"${result.ocrText}" 장면을 그려봤어. 어때?`;
+            // AI 질문 처리 (aiQuestion 필드 사용)
+            let aiMsg = `"${result.ocrText}"라는 내용의 장면을 그려봤어. 어때?`;
+            if (result.aiQuestion) { aiMsg = pickRandomQuestion(result.aiQuestion); }
             addChatMessage(aiMsg, "ai");
+
+            // AI가 한 질문을 히스토리에 저장 (role: model)
+            chatHistory.push({ role: "model", message: aiMsg });
         } else {
             imagePlaceholder.style.display = 'block';
             addChatMessage("앗, 그림을 그리다가 실패했어... 😭 나중에 다시 시도해줄래?", "ai");
@@ -424,10 +527,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!userText) return;
         addChatMessage(userText, "user");
         chatInput.value = "";
+
+        // 1. 사용자 메시지를 히스토리에 저장 (role: user)
+        // (백엔드로 보내기 전에 먼저 저장하지 않음 - 백엔드 구조에 따라 다를 수 있지만 보통 요청 시엔 history에 포함하지 않고 message로 따로 보냄)
+        // 하지만 다음 턴을 위해 저장은 필수입니다.
         
-        // 백엔드 호출: 채팅
-        const reply = await getChatResponse(userText, []); 
+        // [API 호출] 현재 히스토리를 함께 전송
+        // 주의: 방금 입력한 userText는 'message' 필드로 가므로 history에는 아직 안 넣거나, 백엔드 로직에 따라 다름.
+        // 일반적인 챗봇 로직에서는 "이전 기록(history)" + "현재 말(message)"로 구성하므로
+        // 여기서는 호출 직전에 넣지 않고 호출 후에 넣거나, 백엔드가 history에 현재 메시지를 포함하길 기대하지 않는다면 호출 시점엔 넣지 않습니다.
+        // 안전하게: 호출할 때는 '이전 대화'만 보내고, 호출 후에 '이번 대화'를 저장합니다.
+        
+        const reply = await getChatResponse(userText, chatHistory);
+
         addChatMessage(reply, "ai");
+
+        // 대화가 끝난 후 이번 턴의 대화 내용을 히스토리에 누적
+        chatHistory.push({ role: "user", message: userText });
+        chatHistory.push({ role: "model", message: reply });
     });
 
     // 게임: 이미지 클릭 시 정답 판정
@@ -555,6 +672,24 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("API 3 Error:", error);
             return "미안, 지금은 대답하기 어려워 😅";
+        }
+    }
+
+    /** * [API 4] 이미지 재생성 (상상력)
+     * 명세: 요청 { prompt: "..." } -> 응답 { imageUrl, objects }
+     */
+    async function regenerateImage(prompt) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/regenerate-image`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: prompt })
+            });
+            if (!response.ok) throw new Error('Regeneration failed');
+            return await response.json();
+        } catch (error) {
+            console.error("API 4 Error:", error);
+            return null;
         }
     }
 
