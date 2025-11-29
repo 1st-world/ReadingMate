@@ -9,6 +9,12 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div class="bg-decoration">
+        <div class="bg-shape shape-1"></div>
+        <div class="bg-shape shape-2"></div>
+        <div class="bg-shape shape-3"></div>
+    </div>
+
     <header>
         <img src="logo_transp.png" alt="서비스 로고" class="logo">
     </header>
@@ -16,9 +22,15 @@
     <main id="app-container">
 
         <section id="screen-welcome" class="screen active">
-            <h2>만나서 반가워!</h2>
-            <p>함께 읽고 싶은 책을 준비해줘 📚</p>
-            <button id="btn-start-setup">시작하기</button>
+            <div class="welcome-content">
+                <h2>만나서 반가워!</h2>
+                <p>함께 읽고 싶은 책을 준비해줘 📚</p>
+                <button id="btn-start-setup">시작하기</button>
+            </div>
+            <p class="ai-notice">
+                * 본 서비스는 AI 모델을 통해 생성된 이미지를 제공합니다.<br>
+                생성된 그림은 실제 책 내용과 다를 수 있습니다.
+            </p>
         </section>
 
         <section id="screen-setup-book" class="screen">
